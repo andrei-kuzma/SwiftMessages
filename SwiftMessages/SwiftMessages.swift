@@ -33,7 +33,7 @@ public class SwiftMessages: PresenterDelegate {
          */
         case Bottom
 
-        case Custom(() -> Animator)
+        case Custom((view: UIView, container: UIView, context: UIViewController) -> Animator)
     }
 
     /**

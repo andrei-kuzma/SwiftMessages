@@ -201,7 +201,7 @@ class Presenter: NSObject, AnimatorDelegate {
             return
         }
 
-        animator.showViewAnimation(completion: { [weak self] completed in
+        animator.showViewAnimation(completion: { completed in
             completion(completed: completed)
         })
     }
