@@ -17,7 +17,6 @@ private let globalInstance = SwiftMessages()
  */
 public class SwiftMessages: PresenterDelegate {
 
-    public init() { }
     /**
      Specifies whether the message view is displayed at the top or bottom
      of the selected presentation container.
@@ -180,6 +179,11 @@ public class SwiftMessages: PresenterDelegate {
     }
 
     /**
+     Not much to say here.
+     */
+    public init() { }
+
+    /**
      Adds the given configuration and view to the message queue to be displayed.
 
      - Parameter config: The configuration options.
@@ -201,7 +205,7 @@ public class SwiftMessages: PresenterDelegate {
      - Parameter view: The view to be displayed.
      */
     public func show(view view: UIView) {
-        show(config: Config(), view: view)
+        show(config: defaultConfig, view: view)
     }
 
     /// A block that returns an arbitrary view.
@@ -236,7 +240,7 @@ public class SwiftMessages: PresenterDelegate {
      - Parameter viewProvider: A block that returns the view to be displayed.
      */
     public func show(viewProvider viewProvider: ViewProvider) {
-        show(config: Config(), viewProvider: viewProvider)
+        show(config: defaultConfig, viewProvider: viewProvider)
     }
 
     /**
@@ -276,6 +280,12 @@ public class SwiftMessages: PresenterDelegate {
             strongSelf.queue = strongSelf.queue.filter { $0.id != id }
         }
     }
+
+    /**
+     Specifies the default configuration to use when calling the variants of
+     `show()` that don't take a `config` argument or as a base for custom configs.
+     */
+    public var defaultConfig = Config()
 
     /**
      Specifies the amount of time to pause between removing a message
@@ -512,6 +522,15 @@ extension SwiftMessages {
 
     public static func hide(id id: String) {
         globalInstance.hide(id: id)
+    }
+
+    public static var defaultConfig: Config {
+        get {
+            return globalInstance.defaultConfig
+        }
+        set {
+            globalInstance.defaultConfig = newValue
+        }
     }
 
     public static var pauseBetweenMessages: NSTimeInterval {
