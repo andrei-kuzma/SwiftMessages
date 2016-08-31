@@ -120,7 +120,7 @@ class Presenter: NSObject, AnimatorDelegate {
             case .Bottom:
                 animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext, isTop: false)
             case .Custom(let animator):
-                self.animator = animator()
+                self.animator = animator(view: view, container: maskingView, context: presentationContext)
             }
 
             animator?.delegate = self
