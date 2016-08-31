@@ -32,6 +32,8 @@ public class SwiftMessages: PresenterDelegate {
          Message view slides up from the bottom.
          */
         case Bottom
+
+        case Custom(() -> Animator)
     }
 
     /**

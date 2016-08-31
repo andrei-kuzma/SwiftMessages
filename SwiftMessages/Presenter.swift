@@ -9,8 +9,8 @@
 import UIKit
 
 class Weak<T: AnyObject> {
-    weak var value : T?
-    init() {}
+    weak var value: T?
+    init() { }
 }
 
 protocol PresenterDelegate: class {
@@ -19,7 +19,7 @@ protocol PresenterDelegate: class {
     func panEnded(presenter presenter: Presenter)
 }
 
-class Presenter: NSObject, UIGestureRecognizerDelegate {
+class Presenter: NSObject, AnimatorDelegate {
 
     let config: SwiftMessages.Config
     let view: UIView
@@ -27,8 +27,8 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
     let maskingView = PassthroughView()
     let presentationContext = Weak<UIViewController>()
     let panRecognizer: UIPanGestureRecognizer
-    var translationConstraint: NSLayoutConstraint! = nil
-    
+
+    var animator: Animator? = nil
     init(config: SwiftMessages.Config, view: UIView, delegate: PresenterDelegate) {
         self.config = config
         self.view = view
@@ -36,15 +36,14 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
         panRecognizer = UIPanGestureRecognizer()
         super.init()
         panRecognizer.addTarget(self, action: #selector(Presenter.pan(_:)))
-        panRecognizer.delegate = self
         maskingView.clipsToBounds = true
     }
-    
+
     var id: String? {
         let identifiable = view as? Identifiable
         return identifiable?.id
     }
-    
+
     var pauseDuration: NSTimeInterval? {
         let duration: NSTimeInterval?
         switch self.config.duration {
@@ -57,15 +56,15 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
         }
         return duration
     }
-    
+
     func show(completion completion: (completed: Bool) -> Void) throws {
         try presentationContext.value = getPresentationContext()
         install()
         showAnimation(completion: completion)
     }
-    
+
     func getPresentationContext() throws -> UIViewController {
-        
+
         func newWindowViewController(windowLevel: UIWindowLevel) -> UIViewController {
             let viewController = WindowViewController(windowLevel: windowLevel)
             if windowLevel == UIWindowLevelNormal {
@@ -73,7 +72,7 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
             }
             return viewController
         }
-        
+
         switch config.presentationContext {
         case .Automatic:
             if let rootViewController = UIApplication.sharedApplication().keyWindow?.rootViewController {
@@ -87,11 +86,11 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
             return viewController.sm_selectPresentationContextBottomUp(config.presentationStyle)
         }
     }
-    
+
     /*
      MARK: - Installation
      */
-    
+
     func install() {
         guard let presentationContext = presentationContext.value else { return }
         if let windowViewController = presentationContext as? WindowViewController {
@@ -114,50 +113,25 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
             containerView.addConstraints([top, leading, bottom, trailing])
         }
         do {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            maskingView.addSubview(view)
-            let leading = NSLayoutConstraint(item: view, attribute: .Leading, relatedBy: .Equal, toItem: maskingView, attribute: .Leading, multiplier: 1.00, constant: 0.0)
-            let trailing = NSLayoutConstraint(item: view, attribute: .Trailing, relatedBy: .Equal, toItem: maskingView, attribute: .Trailing, multiplier: 1.00, constant: 0.0)
+
             switch config.presentationStyle {
             case .Top:
-                translationConstraint = NSLayoutConstraint(item: view, attribute: .Top, relatedBy: .Equal, toItem: maskingView, attribute: .Top, multiplier: 1.00, constant: 0.0)
+                animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext, isTop: true)
             case .Bottom:
-                translationConstraint = NSLayoutConstraint(item: maskingView, attribute: .Bottom, relatedBy: .Equal, toItem: view, attribute: .Bottom, multiplier: 1.00, constant: 0.0)
+                animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext, isTop: false)
+            case .Custom(let animator):
+                self.animator = animator()
             }
-            maskingView.addConstraints([leading, trailing, translationConstraint])
-            if let adjustable = view as? MarginAdjustable {
-                var top: CGFloat = 0.0
-                var bottom: CGFloat = 0.0
-                switch config.presentationStyle {
-                case .Top:
-                    top += adjustable.bounceAnimationOffset
-                    if !UIApplication.sharedApplication().statusBarHidden {
-                        if let vc = presentationContext as? WindowViewController {
-                            if vc.windowLevel == UIWindowLevelNormal {
-                                top += adjustable.statusBarOffset
-                            }
-                        } else if let vc = presentationContext as? UINavigationController {
-                            if !vc.sm_isVisible(view: vc.navigationBar) {
-                                top += adjustable.statusBarOffset
-                            }
-                        } else {
-                            top += adjustable.statusBarOffset
-                        }
-                    }
-                case .Bottom:
-                    bottom += adjustable.bounceAnimationOffset
-                }
-                view.layoutMargins = UIEdgeInsets(top: top, left: 0.0, bottom: bottom, right: 0.0)
-            }
-            let size = view.systemLayoutSizeFittingSize(UILayoutFittingCompressedSize)
-            translationConstraint.constant -= size.height
+
+            animator?.delegate = self
+            panRecognizer.delegate = animator
         }
         containerView.layoutIfNeeded()
         if config.interactiveHide {
             view.addGestureRecognizer(panRecognizer)
         }
         do {
-            
+
             func setupInteractive(interactive: Bool) {
                 if interactive {
                     maskingView.tappedHander = { [weak self] in
@@ -170,7 +144,7 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
                     maskingView.tappedHander = { }
                 }
             }
-            
+
             switch config.dimMode {
             case .None:
                 break
@@ -181,7 +155,7 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
             }
         }
     }
-    
+
     func topLayoutConstraint(view view: UIView, presentationContext: UIViewController) -> NSLayoutConstraint {
         if case .Top = config.presentationStyle, let nav = presentationContext as? UINavigationController where nav.sm_isVisible(view: nav.navigationBar) {
             return NSLayoutConstraint(item: view, attribute: .Top, relatedBy: .Equal, toItem: nav.navigationBar, attribute: .Bottom, multiplier: 1.00, constant: 0.0)
@@ -195,7 +169,7 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
         }
         return NSLayoutConstraint(item: view, attribute: .Bottom, relatedBy: .Equal, toItem: presentationContext.view, attribute: .Bottom, multiplier: 1.00, constant: 0.0)
     }
-    
+
     /*
      MARK: - Showing and hiding
      */
@@ -203,7 +177,7 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
     func showAnimation(completion completion: (completed: Bool) -> Void) {
 
         showViewAnimation(completion: completion)
-        
+
         func dim(color: UIColor) {
             self.maskingView.backgroundColor = UIColor.clearColor()
             UIView.animateWithDuration(0.2, animations: {
@@ -222,61 +196,35 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
     }
 
     func showViewAnimation(completion completion: (completed: Bool) -> Void) {
-        
-        switch config.presentationStyle {
-        case .Top, .Bottom:
-            let animationDistance = self.translationConstraint.constant + bounceOffset
-            // Cap the initial velocity at zero because the bounceOffset may not be great
-            // enough to allow for greater bounce induced by a quick panning motion.
-            let initialSpringVelocity = animationDistance == 0.0 ? 0.0 : min(0.0, closeSpeed / animationDistance)
-            UIView.animateWithDuration(0.4, delay: 0.0, usingSpringWithDamping: 0.8, initialSpringVelocity: initialSpringVelocity, options: [.BeginFromCurrentState, .CurveLinear, .AllowUserInteraction], animations: {
-                self.translationConstraint.constant = -self.bounceOffset
-                self.view.superview?.layoutIfNeeded()
-                }, completion: { completed in
-                    completion(completed: completed)
-            })
+        guard let animator = animator else {
+            completion(completed: false)
+            return
         }
+
+        animator.showViewAnimation(completion: { [weak self] completed in
+            completion(completed: completed)
+        })
     }
 
     func hide(completion completion: (completed: Bool) -> Void) {
-        switch config.presentationStyle {
-        case .Top, .Bottom:
-            UIView.animateWithDuration(0.2, delay: 0, options: [.BeginFromCurrentState, .CurveEaseIn], animations: {
-                let size = self.view.systemLayoutSizeFittingSize(UILayoutFittingCompressedSize)
-                self.translationConstraint.constant -= size.height
-                self.view.superview?.layoutIfNeeded()
-                }, completion: { completed in
-                    if let viewController = self.presentationContext.value as? WindowViewController {
-                        viewController.uninstall()
-                    }
-                    self.maskingView.removeFromSuperview()
-                    completion(completed: completed)
-            })
-// TODO the spring animation makes the interactive hide transition smoother, but
-// TODO the added delay due to damping makes status bar style transitions look bad.
-// TODO need to find an animation technique that accommodates both concerns.
-//            let size = self.view.systemLayoutSizeFittingSize(UILayoutFittingCompressedSize)
-//            // Travel a bit further to account for possible drop shadow
-//            let translationDistance = size.height - panTranslationY
-//            let initialSpringVelocity = size.height == 0.0 ? 0.0 : closeSpeed / translationDistance
-//            UIView.animateWithDuration(0.35, delay: 0, usingSpringWithDamping: 1.0, initialSpringVelocity: initialSpringVelocity, options: [.BeginFromCurrentState, .CurveLinear], animations: {
-//                self.translationConstraint.constant -= translationDistance
-//                self.view.superview?.layoutIfNeeded()
-//            }, completion: { (completed) in
-//                if let viewController = self.presentationContext.value as? WindowViewController {
-//                    viewController.uninstall()
-//                }
-//                self.maskingView.removeFromSuperview()
-//                completion(completed: completed)
-//            })
+        guard let animator = animator else {
+            completion(completed: false)
+            return
         }
-        
+        animator.hide(completion: { completed in
+            if let viewController = self.presentationContext.value as? WindowViewController {
+                viewController.uninstall()
+            }
+            self.maskingView.removeFromSuperview()
+            completion(completed: completed)
+        })
+
         func undim() {
             UIView.animateWithDuration(0.2, animations: {
                 self.maskingView.backgroundColor = UIColor.clearColor()
             })
         }
-        
+
         switch config.dimMode {
         case .None:
             break
@@ -286,7 +234,94 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
             undim()
         }
     }
-    
+
+    @objc func pan(pan: UIPanGestureRecognizer) {
+        animator?.pan(pan)
+    }
+
+    // MARK - AnimatorDelegate
+
+    func hide(presenter presenter: Animator) {
+        delegate?.hide(presenter: self)
+    }
+
+    func panStarted(presenter presenter: Animator) {
+        delegate?.panStarted(presenter: self)
+    }
+
+    func panEnded(presenter presenter: Animator) {
+        delegate?.panEnded(presenter: self)
+    }
+
+}
+
+public protocol Animator: UIGestureRecognizerDelegate {
+    weak var delegate: AnimatorDelegate? { get set }
+
+    init(view: UIView, toContainer container: UIView, inContext context: UIViewController)
+    func showViewAnimation(completion completion: (completed: Bool) -> Void)
+    func hide(completion completion: (completed: Bool) -> Void)
+    func pan(pan: UIPanGestureRecognizer)
+}
+
+public protocol AnimatorDelegate: class {
+    func hide(presenter presenter: Animator)
+    func panStarted(presenter presenter: Animator)
+    func panEnded(presenter presenter: Animator)
+
+}
+
+public class AnimatorTopBottom: NSObject, Animator {
+
+    private let translationConstraint: NSLayoutConstraint
+    private let view: UIView
+    private let context: UIViewController
+    private let isTop: Bool
+    public weak var delegate: AnimatorDelegate? = nil
+
+    public required convenience init(view: UIView, toContainer container: UIView, inContext context: UIViewController) {
+        self.init(view: view, toContainer: container, inContext: context, isTop: true)
+    }
+
+    public required init(view: UIView, toContainer container: UIView, inContext context: UIViewController, isTop: Bool) {
+        self.isTop = isTop
+        self.view = view
+        self.context = context
+        view.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(view)
+        let leading = NSLayoutConstraint(item: view, attribute: .Leading, relatedBy: .Equal, toItem: container, attribute: .Leading, multiplier: 1.00, constant: 0.0)
+        let trailing = NSLayoutConstraint(item: view, attribute: .Trailing, relatedBy: .Equal, toItem: container, attribute: .Trailing, multiplier: 1.00, constant: 0.0)
+        let attribute: NSLayoutAttribute = isTop ?.Top: .Bottom
+        translationConstraint = NSLayoutConstraint(item: isTop ? view : container, attribute: attribute, relatedBy: .Equal, toItem: isTop ? container : view, attribute: attribute, multiplier: 1.00, constant: 0.0)
+
+        container.addConstraints([leading, trailing, translationConstraint])
+        if let adjustable = view as? MarginAdjustable {
+            var top: CGFloat = 0.0
+            var bottom: CGFloat = 0.0
+            if isTop {
+                top += adjustable.bounceAnimationOffset
+                if !UIApplication.sharedApplication().statusBarHidden {
+                    if let vc = context as? WindowViewController {
+                        if vc.windowLevel == UIWindowLevelNormal {
+                            top += adjustable.statusBarOffset
+                        }
+                    } else if let vc = context as? UINavigationController {
+                        if !vc.sm_isVisible(view: vc.navigationBar) {
+                            top += adjustable.statusBarOffset
+                        }
+                    } else {
+                        top += adjustable.statusBarOffset
+                    }
+                }
+            } else {
+                bottom += adjustable.bounceAnimationOffset
+            }
+            view.layoutMargins = UIEdgeInsets(top: top, left: 0.0, bottom: bottom, right: 0.0)
+        }
+        let size = view.systemLayoutSizeFittingSize(UILayoutFittingCompressedSize)
+        translationConstraint.constant -= size.height
+    }
+
     private var bounceOffset: CGFloat {
         var bounceOffset: CGFloat = 5.0
         if let adjustable = view as? MarginAdjustable {
@@ -294,17 +329,66 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
         }
         return bounceOffset
     }
-    
+
+    private var panBackgroundView: UIView {
+        if let view = view as? BackgroundViewable {
+            return view.backgroundView
+        } else {
+            return view
+        }
+    }
+
+    public func showViewAnimation(completion completion: (completed: Bool) -> Void) {
+        // Cap the initial velocity at zero because the bounceOffset may not be great
+        // enough to allow for greater bounce induced by a quick panning motion.
+        let animationDistance = translationConstraint.constant + bounceOffset
+        let initialSpringVelocity = animationDistance == 0.0 ? 0.0 : min(0.0, closeSpeed / animationDistance)
+        UIView.animateWithDuration(
+            0.4,
+            delay: 0.0,
+            usingSpringWithDamping: 0.8,
+            initialSpringVelocity: initialSpringVelocity,
+            options: [.BeginFromCurrentState, .CurveLinear, .AllowUserInteraction],
+            animations: {
+                self.translationConstraint.constant = -self.bounceOffset
+                self.view.superview?.layoutIfNeeded()
+            },
+            completion: { completed in
+
+                print(self.view.convertRect(self.view.frame, toView: self.view.window))
+                completion(completed: completed)
+            }
+        )
+    }
+
+    public func hide(completion completion: (completed: Bool) -> Void) {
+
+        UIView.animateWithDuration(
+            0.2,
+            delay: 0,
+            options: [.BeginFromCurrentState, .CurveEaseIn],
+            animations: {
+                let size = self.view.systemLayoutSizeFittingSize(UILayoutFittingCompressedSize)
+                self.translationConstraint.constant -= size.height
+                self.view.superview?.layoutIfNeeded()
+            },
+            completion: { completed in
+
+                completion(completed: completed)
+            }
+        )
+    }
+
     /*
      MARK: - Swipe to close
      */
-    
+
     private var closing = false
     private var closeSpeed: CGFloat = 0.0
     private var closePercent: CGFloat = 0.0
     private var panTranslationY: CGFloat = 0.0
-    
-    @objc func pan(pan: UIPanGestureRecognizer) {
+
+    public func pan(pan: UIPanGestureRecognizer) {
         switch pan.state {
         case .Changed:
             let backgroundView = panBackgroundView
@@ -313,7 +397,7 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
             let point = pan.locationOfTouch(0, inView: backgroundView)
             var velocity = pan.velocityInView(backgroundView)
             var translation = pan.translationInView(backgroundView)
-            if case .Top = config.presentationStyle {
+            if isTop {
                 velocity.y *= -1.0
                 translation.y *= -1.0
             }
@@ -347,26 +431,18 @@ class Presenter: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    private var panBackgroundView: UIView {
-        if let view = view as? BackgroundViewable {
-            return view.backgroundView
-        } else {
-            return view
-        }
-    }
-    
     private func shouldBeginPan(pan: UIGestureRecognizer) -> Bool {
         let backgroundView = panBackgroundView
         let point = pan.locationOfTouch(0, inView: backgroundView)
         return CGRectContainsPoint(backgroundView.bounds, point)
     }
-    
+
     /*
      MARK: - UIGestureRecognizerDelegate
      */
-    
-    func gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if gestureRecognizer == panRecognizer {
+
+    public func gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer.delegate === self {
             return shouldBeginPan(gestureRecognizer)
         }
         return true
