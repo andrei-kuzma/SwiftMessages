@@ -474,7 +474,7 @@ extension SwiftMessages {
             }
         }
         let arrayOfViews = resolvedBundle.loadNibNamed(name, owner: filesOwner, options: nil)
-        guard let view = arrayOfViews.flatMap({ $0 as? T }).first else { throw Error.CannotLoadViewFromNib(nibName: name) }
+        guard let view = arrayOfViews?.first as? T  else { throw Error.CannotLoadViewFromNib(nibName: name) }
         return view
     }
 }
