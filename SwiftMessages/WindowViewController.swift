@@ -11,36 +11,49 @@ import UIKit
 class WindowViewController: UIViewController
 {
     fileprivate var window: UIWindow?
-    
+    fileprivate var appWindow: UIWindow?
+
     let windowLevel: UIWindowLevel
     var statusBarStyle: UIStatusBarStyle?
-    
+
     init(windowLevel: UIWindowLevel = UIWindowLevelNormal)
     {
         self.windowLevel = windowLevel
         let window = PassthroughWindow(frame: UIScreen.main.bounds)
         self.window = window
+        appWindow = UIApplication.shared.keyWindow
         super.init(nibName: nil, bundle: nil)
         self.view = PassthroughView()
         window.rootViewController = self
         window.windowLevel = windowLevel
     }
-    
+
     func install() {
         guard let window = window else { return }
         window.makeKeyAndVisible()
     }
-    
+
     func uninstall() {
         window?.isHidden = true
         window = nil
     }
-    
+
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
     override public var preferredStatusBarStyle: UIStatusBarStyle {
         return statusBarStyle ?? UIApplication.shared.statusBarStyle
+    }
+
+    override var prefersStatusBarHidden: Bool {
+        return appWindow?.rootViewController?.prefersStatusBarHidden ?? UIApplication.shared.isStatusBarHidden
+    }
+
+    override func didRotate(from fromInterfaceOrientation: UIInterfaceOrientation) {
+        super.didRotate(from: fromInterfaceOrientation)
+        DispatchQueue.main.async {
+            self.setNeedsStatusBarAppearanceUpdate()
+        }
     }
 }
