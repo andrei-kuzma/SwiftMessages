@@ -1,6 +1,75 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [3.1.4](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.4)
+
+### Bug Fixes
+
+* Fixed an issue where UIKit components were being instantiated off the main queue.
+
+## [3.1.3](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.3)
+
+### Features
+
+* Added the ability to set a custom value on `MessageView.id`. This can be useful for dismissing specific messages using a pre-defined `id`.
+
+## [3.1.2](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.2)
+
+### Features
+
+* Changed the default behavior when a message is displayed in its own window (such as with `.window` presentation context) to no longer become the key window in order to prevent the keyboard from dismissing. If one needs the message's window to become key, this can be done by setting `SwiftMessages.Config.becomeKeyWindow` to `true`. See 
+
+### Bug Fixes
+
+* Changed the internal logic of hiding a message view to always succeed to work around the problem of the hide animation failing, such as when started while the app is not active.
+* Improved reliability of the automatic adjustments made to avoid message views overlapping the status bar, particularly when using the `.view` presentation context.
+
+## [3.1.1](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.1)
+
+### Features
+
+* Added a `view` case to `presentationContext` for displaying the message in a specific container view.
+
+## [3.1.0](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.0)
+
+### Features
+
+* Add `eventListeners` option to `SwiftMessages.Config` to specify a list of event listeners to be notified of message show and hide events.
+
+## [3.0.3](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.0.3)
+
+### Features
+
+* Add `ignoreDuplicates` option to `SwiftMessages.Config` to specify whether or not to ignore duplicate `Identifiable` message views.
+
+## [3.0.2](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.0.2)
+
+### Features
+
+* Add `shouldAutorotate` option to `SwiftMessages.Config` for customizing device rotation behavior when messages are presented in an overlay window. By default, message will auto-rotate.
+
+## [3.0.1](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.0.1)
+
+### Improvements
+
+* Enable automatic provisioning on framework target
+
+## [3.0.0](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.0.0)
+
+### Breaking Changes
+
+* Support for Swift 3.0.
+
+## [2.0.0](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/2.0.0)
+
+### Breaking Changes
+
+* Support for Swift 2.3 and Xcode 8.
+
+  The nib files needed to be updated to Xcode 8 format to work 
+  around an iOS bug. Unfortunately, this makes it necessary 
+  to break backward compatibility with Swift 2.2 and Xcode 7.
+
 ## [1.1.4](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/1.1.4)
 
 ### Bug Fixes

@@ -10,7 +10,9 @@ import UIKit
 
 class Weak<T: AnyObject> {
     weak var value: T?
-    init() { }
+    init(value: T?) {
+        self.value = value
+    }
 }
 
 protocol PresenterDelegate: class {
@@ -21,11 +23,34 @@ protocol PresenterDelegate: class {
 
 class Presenter: NSObject, AnimatorDelegate {
 
+    enum PresentationContext {
+        case viewController(_: Weak<UIViewController>)
+        case view(_: Weak<UIView>)
+
+        func viewControllerValue() -> UIViewController? {
+            switch self {
+            case .viewController(let weak):
+                return weak.value
+            case .view:
+                return nil
+            }
+        }
+
+        func viewValue() -> UIView? {
+            switch self {
+            case .viewController(let weak):
+                return weak.value?.view
+            case .view(let weak):
+                return weak.value
+            }
+        }
+    }
+
     let config: SwiftMessages.Config
     let view: UIView
     weak var delegate: PresenterDelegate?
     let maskingView = PassthroughView()
-    let presentationContext = Weak<UIViewController>()
+    var presentationContext = PresentationContext.viewController(Weak<UIViewController>(value: nil))
     let panRecognizer: UIPanGestureRecognizer
 
     var animator: Animator? = nil
@@ -58,32 +83,39 @@ class Presenter: NSObject, AnimatorDelegate {
     }
 
     func show(completion: @escaping (_ completed: Bool) -> Void) throws {
-        try presentationContext.value = getPresentationContext()
+        try presentationContext = getPresentationContext()
         install()
-        showAnimation(completion: completion)
+        self.config.eventListeners.forEach { $0(.willShow) }
+        showAnimation() { completed in
+            completion(completed)
+            if completed {
+                self.config.eventListeners.forEach { $0(.didShow) }
+            }
+        }
     }
 
-    func getPresentationContext() throws -> UIViewController {
-
+    func getPresentationContext() throws -> PresentationContext {
         func newWindowViewController(_ windowLevel: UIWindowLevel) -> UIViewController {
-            let viewController = WindowViewController(windowLevel: windowLevel)
-            if windowLevel == UIWindowLevelNormal {
-                viewController.statusBarStyle = config.preferredStatusBarStyle
-            }
+            let viewController = WindowViewController(windowLevel: windowLevel, config: config)
             return viewController
         }
 
         switch config.presentationContext {
         case .automatic:
             if let rootViewController = UIApplication.shared.keyWindow?.rootViewController {
-                return rootViewController.sm_selectPresentationContextTopDown(config.presentationStyle)
+                let viewController = rootViewController.sm_selectPresentationContextTopDown(config)
+                return .viewController(Weak(value: viewController))
             } else {
                 throw SwiftMessagesError.noRootViewController
             }
         case .window(let level):
-            return newWindowViewController(level)
+            let viewController = newWindowViewController(level)
+            return .viewController(Weak(value: viewController))
         case .viewController(let viewController):
-            return viewController.sm_selectPresentationContextBottomUp(config.presentationStyle)
+            let viewController = viewController.sm_selectPresentationContextBottomUp(config)
+            return .viewController(Weak(value: viewController))
+        case .view(let view):
+            return .view(Weak(value: view))
         }
     }
 
@@ -92,16 +124,15 @@ class Presenter: NSObject, AnimatorDelegate {
      */
 
     func install() {
-        guard let presentationContext = presentationContext.value else { return }
-        if let windowViewController = presentationContext as? WindowViewController {
-            windowViewController.install()
+        guard let containerView = presentationContext.viewValue() else { return }
+        if let windowViewController = presentationContext.viewControllerValue() as? WindowViewController {
+            windowViewController.install(becomeKey: config.becomeKeyWindow)
         }
-        let containerView: UIView = presentationContext.view
         do {
             maskingView.translatesAutoresizingMaskIntoConstraints = false
-            if let nav = presentationContext as? UINavigationController {
+            if let nav = presentationContext.viewControllerValue() as? UINavigationController {
                 containerView.insertSubview(maskingView, belowSubview: nav.navigationBar)
-            } else if let tab = presentationContext as? UITabBarController {
+            } else if let tab = presentationContext.viewControllerValue() as? UITabBarController {
                 containerView.insertSubview(maskingView, belowSubview: tab.tabBar)
             } else {
                 containerView.addSubview(maskingView)
@@ -115,11 +146,11 @@ class Presenter: NSObject, AnimatorDelegate {
         do {
             switch config.presentationStyle {
             case .top:
-                animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext, isTop: true)
+                animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext.viewControllerValue(), isTop: true)
             case .bottom:
-                animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext, isTop: false)
+                animator = AnimatorTopBottom(view: view, toContainer: maskingView, inContext: presentationContext.viewControllerValue(), isTop: false)
             case .custom(let animator):
-                self.animator = animator((view: view, container: maskingView, context: presentationContext))
+                self.animator = animator((view: view, container: maskingView, context: presentationContext.viewControllerValue()))
             }
 
             animator?.delegate = self
@@ -130,7 +161,6 @@ class Presenter: NSObject, AnimatorDelegate {
             view.addGestureRecognizer(panRecognizer)
         }
         do {
-
             func setupInteractive(_ interactive: Bool) {
                 if interactive {
                     maskingView.tappedHander = { [weak self] in
@@ -155,18 +185,18 @@ class Presenter: NSObject, AnimatorDelegate {
         }
     }
 
-    func topLayoutConstraint(view: UIView, presentationContext: UIViewController) -> NSLayoutConstraint {
-        if case .top = config.presentationStyle, let nav = presentationContext as? UINavigationController, nav.sm_isVisible(view: nav.navigationBar) {
+    func topLayoutConstraint(view: UIView, presentationContext: PresentationContext) -> NSLayoutConstraint {
+        if case .top = config.presentationStyle, let nav = presentationContext.viewControllerValue() as? UINavigationController, nav.sm_isVisible(view: nav.navigationBar) {
             return NSLayoutConstraint(item: view, attribute: .top, relatedBy: .equal, toItem: nav.navigationBar, attribute: .bottom, multiplier: 1.00, constant: 0.0)
         }
-        return NSLayoutConstraint(item: view, attribute: .top, relatedBy: .equal, toItem: presentationContext.view, attribute: .top, multiplier: 1.00, constant: 0.0)
+        return NSLayoutConstraint(item: view, attribute: .top, relatedBy: .equal, toItem: presentationContext.viewValue(), attribute: .top, multiplier: 1.00, constant: 0.0)
     }
 
-    func bottomLayoutConstraint(view: UIView, presentationContext: UIViewController) -> NSLayoutConstraint {
-        if case .bottom = config.presentationStyle, let tab = presentationContext as? UITabBarController, tab.sm_isVisible(view: tab.tabBar) {
+    func bottomLayoutConstraint(view: UIView, presentationContext: PresentationContext) -> NSLayoutConstraint {
+        if case .bottom = config.presentationStyle, let tab = presentationContext.viewControllerValue() as? UITabBarController, tab.sm_isVisible(view: tab.tabBar) {
             return NSLayoutConstraint(item: view, attribute: .bottom, relatedBy: .equal, toItem: tab.tabBar, attribute: .top, multiplier: 1.00, constant: 0.0)
         }
-        return NSLayoutConstraint(item: view, attribute: .bottom, relatedBy: .equal, toItem: presentationContext.view, attribute: .bottom, multiplier: 1.00, constant: 0.0)
+        return NSLayoutConstraint(item: view, attribute: .bottom, relatedBy: .equal, toItem: presentationContext.viewValue(), attribute: .bottom, multiplier: 1.00, constant: 0.0)
     }
 
     /*
@@ -212,7 +242,7 @@ class Presenter: NSObject, AnimatorDelegate {
             return
         }
         animator.hide(completion: { completed in
-            if let viewController = self.presentationContext.value as? WindowViewController {
+            if let viewController = self.presentationContext.viewControllerValue() as? WindowViewController {
                 viewController.uninstall()
             }
             self.maskingView.removeFromSuperview()
@@ -235,9 +265,8 @@ class Presenter: NSObject, AnimatorDelegate {
         }
     }
 
-
     @objc func pan(pan: UIPanGestureRecognizer) {
-        animator?.pan(pan: pan)
+        animator?.pan(pan)
     }
 
     // MARK - AnimatorDelegate
@@ -258,10 +287,10 @@ class Presenter: NSObject, AnimatorDelegate {
 public protocol Animator: UIGestureRecognizerDelegate {
     weak var delegate: AnimatorDelegate? { get set }
 
-    init(view: UIView, toContainer container: UIView, inContext context: UIViewController)
+    init(view: UIView, toContainer container: UIView, inContext context: UIViewController?)
     func showViewAnimation(completion: @escaping (_ completed: Bool) -> Void)
     func hide(completion: @escaping (_ completed: Bool) -> Void)
-    func pan(pan: UIPanGestureRecognizer)
+    func pan(_ pan: UIPanGestureRecognizer)
 }
 
 public protocol AnimatorDelegate: class {
@@ -275,15 +304,15 @@ public class AnimatorTopBottom: NSObject, Animator {
 
     private let translationConstraint: NSLayoutConstraint
     private let view: UIView
-    private let context: UIViewController
+    private let context: UIViewController?
     private let isTop: Bool
     public weak var delegate: AnimatorDelegate? = nil
 
-    public required convenience init(view: UIView, toContainer container: UIView, inContext context: UIViewController) {
+    public required convenience init(view: UIView, toContainer container: UIView, inContext context: UIViewController?) {
         self.init(view: view, toContainer: container, inContext: context, isTop: true)
     }
 
-    public required init(view: UIView, toContainer container: UIView, inContext context: UIViewController, isTop: Bool) {
+    public required init(view: UIView, toContainer container: UIView, inContext context: UIViewController?, isTop: Bool) {
         self.isTop = isTop
         self.view = view
         self.context = context
@@ -322,7 +351,7 @@ public class AnimatorTopBottom: NSObject, Animator {
         translationConstraint.constant -= size.height
     }
 
-    private var bounceOffset: CGFloat {
+    fileprivate var bounceOffset: CGFloat {
         var bounceOffset: CGFloat = 5.0
         if let adjustable = view as? MarginAdjustable {
             bounceOffset = adjustable.bounceAnimationOffset
@@ -378,11 +407,12 @@ public class AnimatorTopBottom: NSObject, Animator {
     fileprivate var closePercent: CGFloat = 0.0
     fileprivate var panTranslationY: CGFloat = 0.0
 
-    @objc public func pan(pan: UIPanGestureRecognizer) {
+    @objc public func pan(_ pan: UIPanGestureRecognizer) {
         switch pan.state {
         case .changed:
             let backgroundView = panBackgroundView
             let backgroundHeight = backgroundView.bounds.height - bounceOffset
+
             guard backgroundHeight > 0 else { return }
 
             let point = pan.location(ofTouch: 0, in: backgroundView)
@@ -422,7 +452,6 @@ public class AnimatorTopBottom: NSObject, Animator {
         }
     }
 
-
     fileprivate var panBackgroundView: UIView {
         if let view = view as? BackgroundViewable {
             return view.backgroundView
@@ -440,7 +469,6 @@ public class AnimatorTopBottom: NSObject, Animator {
     /*
      MARK: - UIGestureRecognizerDelegate
      */
-
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer == self {
             return shouldBeginPan(gestureRecognizer)
@@ -448,3 +476,4 @@ public class AnimatorTopBottom: NSObject, Animator {
         return true
     }
 }
+

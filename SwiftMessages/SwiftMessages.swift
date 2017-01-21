@@ -15,7 +15,6 @@ private let globalInstance = SwiftMessages()
  It behaves like a queue, only showing one message at a time. Message views that
  implement the `Identifiable` protocol (as `MessageView` does) will have duplicates removed.
  */
-
 open class SwiftMessages: PresenterDelegate {
 
     /**
@@ -23,18 +22,19 @@ open class SwiftMessages: PresenterDelegate {
      of the selected presentation container.
      */
     public enum PresentationStyle {
-
         /**
          Message view slides down from the top.
         */
         case top
+
         /**
          Message view slides up from the bottom.
          */
         case bottom
+
         case custom(AnimatorClosure)
     }
-    public typealias AnimatorClosure = ((view: UIView, container: UIView, context: UIViewController)) -> Animator
+    public typealias AnimatorClosure = ((view: UIView, container: UIView, context: UIViewController?)) -> Animator
 
     /**
      Specifies how the container for presenting the message view
@@ -70,6 +70,11 @@ open class SwiftMessages: PresenterDelegate {
          for targeted placement in a view controller heirarchy.
         */
         case viewController(_: UIViewController)
+
+        /**
+         Displays the message view in the given container view.
+         */
+        case view(_: UIView)
     }
 
     /**
@@ -82,7 +87,7 @@ open class SwiftMessages: PresenterDelegate {
          Hide the message view after the default duration.
         */
         case automatic
-        
+
         /**
          Disables automatic hiding of the message view.
         */
@@ -128,6 +133,21 @@ open class SwiftMessages: PresenterDelegate {
     }
 
     /**
+     Specifies events in the message lifecycle.
+    */
+    public enum Event {
+        case willShow
+        case didShow
+        case willHide
+        case didHide
+    }
+
+    /**
+     A closure that takes an `Event` as an argument.
+     */
+    public typealias EventListener = (Event) -> Void
+
+    /**
      The `Config` struct specifies options for displaying a single message view. It is
      provided as an optional argument to one of the `MessageView.show()` methods.
      */
@@ -151,14 +171,14 @@ open class SwiftMessages: PresenterDelegate {
          Specifies the duration of the message view's time on screen before it is
          automatically hidden. The default is `.Automatic`.
          */
-
         public var duration = Duration.automatic
+
         /**
          Specifies options for dimming the background behind the message view
          similar to a popover view controller. The default is `.None`.
          */
-
         public var dimMode = DimMode.none
+
         /**
          Specifies whether or not the interactive pan-to-hide gesture is enabled
          on the message view. For views that implement the `BackgroundViewable`
@@ -178,6 +198,40 @@ open class SwiftMessages: PresenterDelegate {
          the current one. The default is `.Default`.
          */
         public var preferredStatusBarStyle: UIStatusBarStyle?
+
+        /**
+         If a view controller is created to host the message view, should the view 
+         controller auto rotate?  The default is 'true', meaning it should auto
+         rotate.
+         */
+        public var shouldAutorotate = true
+
+        /**
+         Specified whether or not duplicate `Identifiable` messages are ignored.
+         The default is `true`.
+        */
+        public var ignoreDuplicates = true
+
+        /**
+         Specifies an optional array of event listeners.
+        */
+        public var eventListeners: [EventListener] = []
+
+        /**
+         Specifies that in cases where the message is displayed in its own window,
+         such as with `.window` presentation context, the window should become
+         the key window. This option should only be used if the message view
+         needs to receive non-touch events, such as keyboard input. From Apple's
+         documentation https://developer.apple.com/reference/uikit/uiwindow:
+         
+         > Whereas touch events are delivered to the window where they occurred,
+         > events that do not have a relevant coordinate value are delivered to
+         > the key window. Only one window at a time can be the key window, and
+         > you can use a window’s keyWindow property to determine its status.
+         > Most of the time, your app’s main window is the key window, but UIKit
+         > may designate a different window as needed.
+         */
+        public var becomeKeyWindow = false
     }
 
     /**
@@ -192,10 +246,14 @@ open class SwiftMessages: PresenterDelegate {
      - Parameter view: The view to be displayed.
      */
     open func show(config: Config, view: UIView) {
-        syncQueue.async { [weak self] in
+
+        DispatchQueue.main.async { [weak self] in
             guard let strongSelf = self else { return }
             let presenter = Presenter(config: config, view: view, delegate: strongSelf)
-            strongSelf.enqueue(presenter: presenter)
+            strongSelf.syncQueue.async { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.enqueue(presenter: presenter)
+            }
         }
     }
 
@@ -206,9 +264,8 @@ open class SwiftMessages: PresenterDelegate {
      - Parameter config: The configuration options.
      - Parameter view: The view to be displayed.
      */
-
-    open func show(view: UIView) {
-        show(config: Config(), view: view)
+    public func show(view: UIView) {
+        show(config: defaultConfig, view: view)
     }
 
     /// A block that returns an arbitrary view.
@@ -242,8 +299,8 @@ open class SwiftMessages: PresenterDelegate {
 
      - Parameter viewProvider: A block that returns the view to be displayed.
      */
-    open func show(viewProvider: @escaping ViewProvider) {
-        show(config: Config(), viewProvider: viewProvider)
+    public func show(viewProvider: @escaping ViewProvider) {
+        show(config: defaultConfig, viewProvider: viewProvider)
     }
 
     /**
@@ -294,9 +351,8 @@ open class SwiftMessages: PresenterDelegate {
      Specifies the amount of time to pause between removing a message
      and showing the next. Default is 0.5 seconds.
      */
-
     open var pauseBetweenMessages: TimeInterval = 0.5
-    
+
     let syncQueue = DispatchQueue(label: "it.swiftkick.SwiftMessages", attributes: [])
 
     var queue: [Presenter] = []
@@ -311,9 +367,9 @@ open class SwiftMessages: PresenterDelegate {
             }
         }
     }
-    
+
     func enqueue(presenter: Presenter) {
-        if let id = presenter.id {
+        if presenter.config.ignoreDuplicates, let id = presenter.id {
             if current?.id == id { return }
             if queue.filter({ $0.id == id }).count > 0 { return }
         }
@@ -359,9 +415,9 @@ open class SwiftMessages: PresenterDelegate {
             }
         }
     }
-    
+
     fileprivate var autohideToken: AnyObject?
-    
+
     fileprivate func queueAutoHide() {
         guard let current = current else { return }
         autohideToken = current
@@ -379,7 +435,7 @@ open class SwiftMessages: PresenterDelegate {
     /*
      MARK: - PresenterDelegate
      */
-    
+
     func hide(presenter: Presenter) {
         syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -389,11 +445,11 @@ open class SwiftMessages: PresenterDelegate {
             strongSelf.queue = strongSelf.queue.filter { $0 !== presenter }
         }
     }
-    
+
     func panStarted(presenter: Presenter) {
         autohideToken = nil
     }
-    
+
     func panEnded(presenter: Presenter) {
         queueAutoHide()
     }
@@ -464,7 +520,7 @@ extension SwiftMessages {
         let view: T = try internalViewFromNib(named: name, bundle: bundle, filesOwner: filesOwner)
         return view
     }
-    
+
     fileprivate class func internalViewFromNib<T: UIView>(named name: String, bundle: Bundle? = nil, filesOwner: AnyObject = NSNull.init()) throws -> T {
         let resolvedBundle: Bundle
         if let bundle = bundle {
@@ -478,7 +534,7 @@ extension SwiftMessages {
         }
 
         let arrayOfViews = resolvedBundle.loadNibNamed(name, owner: filesOwner, options: nil)
-        guard let view = arrayOfViews?.first as? T  else { throw SwiftMessagesError.cannotLoadViewFromNib(nibName: name) }
+        guard let view = arrayOfViews?.first as? T else { throw SwiftMessagesError.cannotLoadViewFromNib(nibName: name) }
         return view
     }
 }
@@ -501,15 +557,15 @@ extension SwiftMessages {
     public static var sharedInstance: SwiftMessages {
         return globalInstance
     }
-    
+
     public static func show(viewProvider: @escaping ViewProvider) {
         globalInstance.show(viewProvider: viewProvider)
     }
-    
+
     public static func show(config: Config, viewProvider: @escaping ViewProvider) {
         globalInstance.show(config: config, viewProvider: viewProvider)
     }
-    
+
     public static func show(view: UIView) {
         globalInstance.show(view: view)
     }
@@ -525,11 +581,20 @@ extension SwiftMessages {
     public static func hideAll() {
         globalInstance.hideAll()
     }
-    
+
     public static func hide(id: String) {
         globalInstance.hide(id: id)
     }
-    
+
+    public static var defaultConfig: Config {
+        get {
+            return globalInstance.defaultConfig
+        }
+        set {
+            globalInstance.defaultConfig = newValue
+        }
+    }
+
     public static var pauseBetweenMessages: TimeInterval {
         get {
             return globalInstance.pauseBetweenMessages

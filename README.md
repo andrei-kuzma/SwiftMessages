@@ -16,7 +16,7 @@ In addition to numerous configuration options, SwiftMessages provides several at
 * Subclass `MessageView` and add elements, etc.
 * Or just supply an arbitrary instance of `UIView`.
 
-Try exploring [the demo app](./Demo/Demo.xcworkspace) to get a feel for the extensive configurability of SwiftMessages.
+Try exploring [the demo app via appetize.io](http://goo.gl/KXw4nD) to get a feel for the extensive configurability of SwiftMessages.
 
 <p align="center">
   <img src="./Demo/demo.png" />
@@ -30,18 +30,33 @@ Try exploring [the demo app](./Demo/Demo.xcworkspace) to get a feel for the exte
 
 ### CocoaPods
 
-Add the following line to your Podfile:
+Add one of the following lines to your Podfile depending on your Swift version:
 
-````
+````ruby
+# Swift 3.0 - Xcode 8
 pod 'SwiftMessages'
+
+# Swift 2.3 - Xcode 8
+pod 'SwiftMessages', '~> 2.0.0'
+
+# Swift 2.2 - Xcode 7.3.1
+pod 'SwiftMessages', '~> 1.1.4'
 ````
+__Note that Swift 2.3 and Swift 3.0 require minimum CocoaPods version 1.1.0__.
 
 ### Carthage
 
-Add the following line to your Cartfile:
+Add one of the following lines to your Cartfile depending on your Swift version:
 
-````
+````ruby
+# Swift 3.0 - Xcode 8
 github "SwiftKickMobile/SwiftMessages"
+
+# Swift 2.3 - Xcode 8
+github "SwiftKickMobile/SwiftMessages" ~> 2.0.0
+
+# Swift 2.2 - Xcode 7.3.1
+github "SwiftKickMobile/SwiftMessages" ~> 1.1.4
 ````
 
 ## Usage
@@ -58,10 +73,10 @@ and assortment of nib-based layouts that should handle most cases:
 ````swift
 // Instantiate a message view from the provided card view layout. SwiftMessages searches for nib
 // files in the main bundle first, so you can easily copy them into your project and make changes.
-let view = MessageView.viewFromNib(layout: .CardView)
+let view = MessageView.viewFromNib(layout: .cardView)
 
 // Theme message elements with the warning style.
-view.configureTheme(.Warning)
+view.configureTheme(.warning)
 
 // Add a drop shadow.
 view.configureDropShadow()
@@ -80,7 +95,7 @@ your UIKit code is executed on the main queue:
 
 ````swift
 SwiftMessages.show {
-    let view = MessageView.viewFromNib(layout: .CardView)
+    let view = MessageView.viewFromNib(layout: .cardView)
     // ... configure the view
     return view
 }
@@ -92,23 +107,28 @@ The `SwiftMessages.Config` struct provides numerous configuration options that c
 var config = SwiftMessages.Config()
 
 // Slide up from the bottom.
-config.presentationStyle = .Bottom
+config.presentationStyle = .bottom
 
 // Display in a window at the specified window level: UIWindowLevelStatusBar
 // displays over the status bar while UIWindowLevelNormal displays under.
-config.presentationContext = .Window(windowLevel: UIWindowLevelStatusBar)
+config.presentationContext = .window(windowLevel: UIWindowLevelStatusBar)
 
 // Disable the default auto-hiding behavior.
-config.duration = .Forever
+config.duration = .forever
 
 // Dim the background like a popover view. Hide when the background is tapped.
-config.dimMode = .Gray(interactive: true)
+config.dimMode = .gray(interactive: true)
 
 // Disable the interactive pan-to-hide gesture.
 config.interactiveHide = false
 
 // Specify a status bar style to if the message is displayed directly under the status bar.
-config.preferredStatusBarStyle = .LightContent
+config.preferredStatusBarStyle = .lightContent
+
+// Specify one or more event listeners to respond to show and hide events.
+config.eventListeners.append() { event in
+    if case .didHide = event { print("yep") }
+}
 
 SwiftMessages.show(config: config, view: view)
 ````
@@ -116,14 +136,14 @@ SwiftMessages.show(config: config, view: view)
 Specify default configuration options:
 
 ````swift
-SwiftMessages.defaultConfig.presentationStyle = .Bottom
+SwiftMessages.defaultConfig.presentationStyle = .bottom
 
 // Show message with default config.
 SwiftMessages.show(view: view)
 
 // Customize config using the default as a base.
 var config = SwiftMessages.defaultConfig
-config.duration = .Forever
+config.duration = .forever
 SwiftMessages.show(config: config, view: view)
 ````
 
@@ -150,7 +170,7 @@ To facilitate the use of nib-based layouts, `MessageView` provides some type-saf
 // Instantiate MessageView from one of the provided nibs in a type-safe way.
 // SwiftMessages searches the main bundle first, so you easily copy the nib into
 // your project and modify it while still using this type-safe call.
-let view = MessageView.viewFromNib(layout: .CardView)
+let view = MessageView.viewFromNib(layout: .cardView)
 ````
 
 In addition, the `SwiftMessages` class provides some generic loading methods:
@@ -203,7 +223,7 @@ otherMessages.show(...)
 ````
 
 ## About SwiftKick Mobile
-We make apps real good. [Get in touch](mailto:tim@swiftkick.it) if you need one.
+We make apps real nice! [Get in touch](mailto:tim@swiftkick.it) if you need one.
 
 ## License
 

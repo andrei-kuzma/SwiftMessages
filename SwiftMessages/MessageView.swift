@@ -11,35 +11,35 @@ import UIKit
 /*
  */
 open class MessageView: BaseView, Identifiable {
-    
+
     /*
      MARK: - Button tap handler
      */
-    
+
     /// An optional button tap handler. The `button` is automatically
     /// configured to call this tap handler on `.TouchUpInside`.
     open var buttonTapHandler: ((_ button: UIButton) -> Void)?
-    
+
     func buttonTapped(_ button: UIButton) {
         buttonTapHandler?(button)
     }
-    
+
     /*
      MARK: - IB outlets
      */
-    
+
     /// An optional title label.
     @IBOutlet open var titleLabel: UILabel?
-    
+
     /// An optional body text label.
     @IBOutlet open var bodyLabel: UILabel?
-    
+
     /// An optional icon image view.
     @IBOutlet open var iconImageView: UIImageView?
-    
+
     /// An optional icon label (e.g. for emoji character, icon font, etc.).
     @IBOutlet open var iconLabel: UILabel?
-    
+
     /// An optional button. This buttons' `.TouchUpInside` event will automatically
     /// invoke the optional `buttonTapHandler`, but its fine to add other target
     /// action handlers can be added.
@@ -53,14 +53,21 @@ open class MessageView: BaseView, Identifiable {
             }
         }
     }
-    
+
     /*
      MARK: - Identifiable
      */
-    
+
     open var id: String {
-        return "MessageView:title=\(titleLabel?.text), body=\(bodyLabel?.text)"
+        get {
+            return customId ?? "MessageView:title=\(titleLabel?.text), body=\(bodyLabel?.text)"
+        }
+        set {
+            customId = newValue
+        }
     }
+
+    private var customId: String?
 }
 
 /*
@@ -75,18 +82,18 @@ open class MessageView: BaseView, Identifiable {
  */
 
 extension MessageView {
-    
+
     /**
      Specifies one of the nib files included in the Resources folders.
      */
     public enum Layout: String {
-        
+
         /**
          The standard message view that stretches across the full width of the
          container view.
          */
         case MessageView = "MessageView"
-        
+
         /**
          A floating card-style view with rounded corners.
          */
@@ -103,14 +110,14 @@ extension MessageView {
          directly under the status bar (see the `ContentInsetting` protocol).
          */
         case StatusLine = "StatusLine"
-        
+
         /**
          A standard message view like `MessageView`, but without
          stack views for iOS 8.
          */
         case MessageViewIOS8 = "MessageViewIOS8"
     }
-    
+
     /**
      Loads the nib file associated with the given `Layout` and returns the first
      view found in the nib file with the matching type `T: MessageView`.
@@ -123,7 +130,7 @@ extension MessageView {
     public static func viewFromNib<T: MessageView>(layout: Layout, filesOwner: AnyObject = NSNull.init()) -> T {
         return try! SwiftMessages.viewFromNib(named: layout.rawValue)
     }
-    
+
     /**
      Loads the nib file associated with the given `Layout` from
      the given bundle and returns the first view found in the nib
@@ -141,6 +148,36 @@ extension MessageView {
 }
 
 /*
+ MARK: - Layout adjustments
+
+ This extention provides a few convenience functions for adjusting the layout.
+ */
+
+extension MessageView {
+    @available(iOS 9, *)
+    /**
+     Constrains the image view to a specified size. By default, the size of the
+     image view is determined by its `intrinsicContentSize`.
+     
+     - Parameter size: The size to be translated into Auto Layout constraints.
+     - Parameter contentMode: The optional content mode to apply.
+     */
+    public func configureIcon(withSize size: CGSize, contentMode: UIViewContentMode? = nil) {
+        var views: [UIView] = []
+        if let iconImageView = iconImageView { views.append(iconImageView) }
+        if let iconLabel = iconLabel { views.append(iconLabel) }
+        views.forEach {
+            let constraints = [$0.heightAnchor.constraint(equalToConstant: size.height),
+                $0.widthAnchor.constraint(equalToConstant: size.width)]
+            $0.addConstraints(constraints)
+            if let contentMode = contentMode {
+                $0.contentMode = contentMode
+            }
+        }
+    }
+}
+
+/*
  MARK: - Theming
  
  This extention provides a few convenience functions for setting styles,
@@ -149,7 +186,7 @@ extension MessageView {
  */
 
 extension MessageView {
-    
+
     /**
      A convenience function for setting some pre-defined colors and icons.
      
@@ -160,24 +197,24 @@ extension MessageView {
         let iconImage = iconStyle.image(theme: theme)
         switch theme {
         case .info:
-            let backgroundColor = UIColor(red: 225.0/255.0, green: 225.0/255.0, blue: 225.0/255.0, alpha: 1.0)
+            let backgroundColor = UIColor(red: 225.0 / 255.0, green: 225.0 / 255.0, blue: 225.0 / 255.0, alpha: 1.0)
             let foregroundColor = UIColor.darkText
             configureTheme(backgroundColor: backgroundColor, foregroundColor: foregroundColor, iconImage: iconImage)
         case .success:
-            let backgroundColor = UIColor(red: 97.0/255.0, green: 161.0/255.0, blue: 23.0/255.0, alpha: 1.0)
+            let backgroundColor = UIColor(red: 97.0 / 255.0, green: 161.0 / 255.0, blue: 23.0 / 255.0, alpha: 1.0)
             let foregroundColor = UIColor.white
             configureTheme(backgroundColor: backgroundColor, foregroundColor: foregroundColor, iconImage: iconImage)
         case .warning:
-            let backgroundColor = UIColor(red: 238.0/255.0, green: 189.0/255.0, blue: 34.0/255.0, alpha: 1.0)
+            let backgroundColor = UIColor(red: 238.0 / 255.0, green: 189.0 / 255.0, blue: 34.0 / 255.0, alpha: 1.0)
             let foregroundColor = UIColor.white
             configureTheme(backgroundColor: backgroundColor, foregroundColor: foregroundColor, iconImage: iconImage)
         case .error:
-            let backgroundColor = UIColor(red: 249.0/255.0, green: 66.0/255.0, blue: 47.0/255.0, alpha: 1.0)
+            let backgroundColor = UIColor(red: 249.0 / 255.0, green: 66.0 / 255.0, blue: 47.0 / 255.0, alpha: 1.0)
             let foregroundColor = UIColor.white
             configureTheme(backgroundColor: backgroundColor, foregroundColor: foregroundColor, iconImage: iconImage)
         }
     }
-    
+
     /**
      A convenience function for setting a foreground and background color.
      Note that images will only display the foreground color if they're
@@ -219,7 +256,7 @@ extension MessageView {
  */
 
 extension MessageView {
-    
+
     /**
      Sets the message body text.
      
@@ -228,7 +265,7 @@ extension MessageView {
     public func configureContent(body: String) {
         bodyLabel?.text = body
     }
-    
+
     /**
      Sets the message title and body text.
      
@@ -239,7 +276,7 @@ extension MessageView {
         configureContent(body: body)
         titleLabel?.text = title
     }
-    
+
     /**
      Sets the message title, body text and icon image. Also hides the
      `iconLabel`.
@@ -255,7 +292,7 @@ extension MessageView {
         iconLabel?.text = nil
         iconLabel?.isHidden = true
     }
-    
+
     /**
      Sets the message title, body text and icon text (e.g. an emoji).
      Also hides the `iconImageView`.
@@ -271,7 +308,7 @@ extension MessageView {
         iconImageView?.isHidden = true
         iconImageView?.image = nil
     }
-    
+
     /**
      Sets all configurable elements.
      

@@ -49,7 +49,8 @@ class ExploreViewController: UITableViewController, UITextFieldDelegate {
         case 3:
             view.configureTheme(.error, iconStyle: iconStyle)
         default:
-            view.configureTheme(backgroundColor: UIColor.purple, foregroundColor: UIColor.white, iconImage: nil, iconText: "🐸")
+            let iconText = ["🐸", "🐷", "🐬", "🐠", "🐍", "🐹", "🐼"].sm_random()
+            view.configureTheme(backgroundColor: UIColor.purple, foregroundColor: UIColor.white, iconImage: nil, iconText: iconText)
             view.button?.setImage(Icon.ErrorSubtle.image, for: .normal)
             view.button?.setTitle(nil, for: .normal)
             view.button?.backgroundColor = UIColor.clear
@@ -79,7 +80,7 @@ class ExploreViewController: UITableViewController, UITextFieldDelegate {
         
         // Config setup
         
-        var config = SwiftMessages.Config()
+        var config = SwiftMessages.defaultConfig
         
         switch presentationStyle.selectedSegmentIndex {
         case 1:
@@ -116,6 +117,8 @@ class ExploreViewController: UITableViewController, UITextFieldDelegate {
         default:
             break
         }
+
+        config.shouldAutorotate = self.autoRotate.isOn
         
         config.interactiveHide = interactiveHide.isOn
         
@@ -146,6 +149,7 @@ class ExploreViewController: UITableViewController, UITextFieldDelegate {
     @IBOutlet weak var layout: UISegmentedControl!
     @IBOutlet weak var theme: UISegmentedControl!
     @IBOutlet weak var iconStyle: UISegmentedControl!
+    @IBOutlet weak var autoRotate: UISwitch!
     @IBOutlet weak var dropShadow: UISwitch!
     @IBOutlet weak var titleText: UITextField!
     @IBOutlet weak var bodyText: UITextField!
