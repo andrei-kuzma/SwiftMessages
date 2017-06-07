@@ -1,6 +1,58 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [3.3.4](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.3.4)
+
+### Features
+* Add `blur` dim mode option.
+
+## [3.3.3](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.3.3)
+
+### Bug Fixes
+* Fix an issue where rapidly showing and hiding messages could result in messages becoming orphaned on-screen.
+
+## [3.3.2](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.3.2)
+
+### Improvements
+* `MessageView` is smarter about including additional accessibility views for cases where you've added accessible elements to the view. Previously only the `button` was included. Now all views where `isAccessibilityElement == true`.
+
+    Note that all nib files now have `isAccessibilityElement == false` for `titleLabel`, `bodyLabel` and `iconLabel` (`titleLabel` and `bodyLabel` are read out as part of the overall message view's text). If any of these need to be directly accessible, then copy the nib file into your project and select "Enabled" in the Accessibility section of the Identity Inspector.
+
+## [3.3.1](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.3.1)
+
+### Bug Fixes
+* Fix regression where the UI was being blocked when using `DimMode.none`.
+
+## [3.3.0](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.3.0)
+
+### Features
+* Add proper support for VoiceOver. See the [Accessibility section](README.md#accessibility) of the readme.
+
+## [3.2.1](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.2.1)
+
+### Bug Fixes
+* Fix infinite loop bug introduced in 3.2.0.
+
+## [3.2.0](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.2.0)
+
+### Features
+* Added the ability to display messages for an indefinite duration while enforcing a minimum duration using `Duration.indefinite(delay:minimum)`.
+
+This option is useful for displaying a message when a process is taking too long but you don't want to display the message if the process completes in a reasonable amount of time.
+         
+For example, if a URL load is expected to complete in 2 seconds, you may use the value `unknown(delay: 2, minimum 1)` to ensure that the message will not be displayed most of the time, but will be displayed for at least 1 second if the operation takes longer than 2 seconds. By specifying a minimum duration, you can avoid hiding the message too fast if the operation finishes right after the delay interval.
+
+### Bug Fixes
+* Prevent views below the dim view from receiving accessibility focus.
+* Prevent taps in the message view from hiding when using interactive dim mode.
+* Fix memory leak of single message view
+
+## [3.1.5](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.5)
+
+### Bug Fixes
+
+* Fix memory leak of `MessageViews`.
+
 ## [3.1.4](https://github.com/SwiftKickMobile/SwiftMessages/releases/tag/3.1.4)
 
 ### Bug Fixes

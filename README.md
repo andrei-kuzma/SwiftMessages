@@ -73,7 +73,7 @@ and assortment of nib-based layouts that should handle most cases:
 ````swift
 // Instantiate a message view from the provided card view layout. SwiftMessages searches for nib
 // files in the main bundle first, so you can easily copy them into your project and make changes.
-let view = MessageView.viewFromNib(layout: .cardView)
+let view = MessageView.viewFromNib(layout: .CardView)
 
 // Theme message elements with the warning style.
 view.configureTheme(.warning)
@@ -95,7 +95,7 @@ your UIKit code is executed on the main queue:
 
 ````swift
 SwiftMessages.show {
-    let view = MessageView.viewFromNib(layout: .cardView)
+    let view = MessageView.viewFromNib(layout: .CardView)
     // ... configure the view
     return view
 }
@@ -147,6 +147,18 @@ config.duration = .forever
 SwiftMessages.show(config: config, view: view)
 ````
 
+### Accessibility
+
+SwiftMessages provides excellent VoiceOver support out-of-the-box.
+
+* The title and body of the message are combined into a single announcement when the message is shown. The `MessageView.accessibilityPrefix` property can be set to prepend additional clarifying text to the announcement.
+
+    Sometimes, a message may contain important visual cues that aren't captured in the title or body. For example, a message may rely on a yellow background to convey a warning rather than having the word "warning" in the title or body. In this case, it might be helpful to set `MessageView.accessibilityPrefix = "warning"`.
+    
+* If the message is shown with a dim view using `config.dimMode`, elements below the dim view are not focusable until the message is hidden. If `config.dimMode.interactive == true`, the dim view itself will be focusable and read out "dismiss" followed by "button". The former text can be customized by setting the `config.dimModeAccessibilityLabel` property.
+
+See the `AccessibleMessage` protocol for implementing proper accessibility support in custom views.
+
 ### Customization
 
 `MessageView` provides the following UI elements, exposed as public, optional `@IBOutlets`:
@@ -170,7 +182,7 @@ To facilitate the use of nib-based layouts, `MessageView` provides some type-saf
 // Instantiate MessageView from one of the provided nibs in a type-safe way.
 // SwiftMessages searches the main bundle first, so you easily copy the nib into
 // your project and modify it while still using this type-safe call.
-let view = MessageView.viewFromNib(layout: .cardView)
+let view = MessageView.viewFromNib(layout: .CardView)
 ````
 
 In addition, the `SwiftMessages` class provides some generic loading methods:
@@ -223,7 +235,7 @@ otherMessages.show(...)
 ````
 
 ## About SwiftKick Mobile
-We make apps real nice! [Get in touch](mailto:tim@swiftkick.it) if you need one.
+We build high quality apps! [Get in touch](http://www.swiftkickmobile.com) if you need help with a project.
 
 ## License
 
