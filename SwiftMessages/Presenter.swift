@@ -84,7 +84,7 @@ class Presenter: NSObject, AnimatorDelegate {
 
     var showDate: Date?
 
-    fileprivate var interactivelyHidden = false;
+    fileprivate var interactivelyHidden = false
 
     var delayShow: TimeInterval? {
         if case .indefinite(let opts) = config.duration { return opts.delay }
@@ -121,17 +121,17 @@ class Presenter: NSObject, AnimatorDelegate {
     private func showAccessibilityAnnouncement() {
         guard let accessibleMessage = view as? AccessibleMessage,
             let message = accessibleMessage.accessibilityMessage else { return }
-        UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, message)
+        UIAccessibility.post(notification: UIAccessibility.Notification.announcement, argument: message)
     }
 
     private func showAccessibilityFocus() {
         guard let accessibleMessage = view as? AccessibleMessage,
             let focus = accessibleMessage.accessibilityElement ?? accessibleMessage.additonalAccessibilityElements?.first else { return }
-        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, focus)
+        UIAccessibility.post(notification: UIAccessibility.Notification.layoutChanged, argument: focus)
     }
 
     func getPresentationContext() throws -> PresentationContext {
-        func newWindowViewController(_ windowLevel: UIWindowLevel) -> UIViewController {
+        func newWindowViewController(_ windowLevel: UIWindow.Level) -> UIViewController {
             let viewController = WindowViewController(windowLevel: windowLevel, config: config)
             return viewController
         }
@@ -235,11 +235,11 @@ class Presenter: NSObject, AnimatorDelegate {
             dismissView.translatesAutoresizingMaskIntoConstraints = true
             dismissView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             maskingView.addSubview(dismissView)
-            maskingView.sendSubview(toBack: dismissView)
+            maskingView.sendSubviewToBack(dismissView)
             dismissView.isUserInteractionEnabled = false
             dismissView.isAccessibilityElement = true
             dismissView.accessibilityLabel = config.dimModeAccessibilityLabel
-            dismissView.accessibilityTraits = UIAccessibilityTraitButton
+            dismissView.accessibilityTraits = .button
             elements.append(dismissView)
         }
         if config.dimMode.modal {
@@ -267,9 +267,9 @@ class Presenter: NSObject, AnimatorDelegate {
         let statusBarViewFrame = view.convert(statusBarWindowFrame, from: nil)
         return statusBarViewFrame.intersects(view.bounds)
     }
-    
+
     func topLayoutConstraint(view: UIView, presentationContext: PresentationContext) -> NSLayoutConstraint {
-    if case .top = config.presentationStyle, let nav = presentationContext.viewControllerValue() as? UINavigationController, nav.sm_isVisible(view: nav.navigationBar) {
+        if case .top = config.presentationStyle, let nav = presentationContext.viewControllerValue() as? UINavigationController, nav.sm_isVisible(view: nav.navigationBar) {
             return NSLayoutConstraint(item: view, attribute: .top, relatedBy: .equal, toItem: nav.navigationBar, attribute: .bottom, multiplier: 1.00, constant: 0.0)
         }
         return NSLayoutConstraint(item: view, attribute: .top, relatedBy: .equal, toItem: presentationContext.viewValue(), attribute: .top, multiplier: 1.00, constant: 0.0)
@@ -297,7 +297,7 @@ class Presenter: NSObject, AnimatorDelegate {
             })
         }
 
-        func blur(style: UIBlurEffectStyle, alpha: CGFloat) {
+        func blur(style: UIBlurEffect.Style, alpha: CGFloat) {
             let blurView = UIVisualEffectView(effect: nil)
             blurView.alpha = alpha
             maskingView.backgroundView = blurView
@@ -356,7 +356,7 @@ class Presenter: NSObject, AnimatorDelegate {
 
         func unblur() {
             guard let view = maskingView.backgroundView as? UIVisualEffectView else { return }
-            UIView.animate(withDuration: 0.2, delay: 0, options: .beginFromCurrentState, animations: { 
+            UIView.animate(withDuration: 0.2, delay: 0, options: .beginFromCurrentState, animations: {
                 view.effect = nil
             }, completion: nil)
         }
@@ -394,7 +394,7 @@ class Presenter: NSObject, AnimatorDelegate {
 }
 
 public protocol Animator: UIGestureRecognizerDelegate {
-    weak var delegate: AnimatorDelegate? { get set }
+    var delegate: AnimatorDelegate? { get set }
 
     init(view: UIView, toContainer container: UIView, inContext context: UIViewController?)
     func showViewAnimation(completion: @escaping (_ completed: Bool) -> Void)
@@ -428,7 +428,7 @@ public class AnimatorTopBottom: NSObject, Animator {
         container.addSubview(view)
         let leading = NSLayoutConstraint(item: view, attribute: .leading, relatedBy: .equal, toItem: container, attribute: .leading, multiplier: 1.00, constant: 0.0)
         let trailing = NSLayoutConstraint(item: view, attribute: .trailing, relatedBy: .equal, toItem: container, attribute: .trailing, multiplier: 1.00, constant: 0.0)
-        let attribute: NSLayoutAttribute = isTop ? .top : .bottom
+        let attribute: NSLayoutConstraint.Attribute = isTop ? .top : .bottom
         translationConstraint = NSLayoutConstraint(item: isTop ? view : container, attribute: attribute, relatedBy: .equal, toItem: isTop ? container : view, attribute: attribute, multiplier: 1.00, constant: 0.0)
 
         container.addConstraints([leading, trailing, translationConstraint])
@@ -439,7 +439,7 @@ public class AnimatorTopBottom: NSObject, Animator {
                 top += adjustable.bounceAnimationOffset
                 if !UIApplication.shared.isStatusBarHidden {
                     if let vc = context as? WindowViewController {
-                        if vc.windowLevel == UIWindowLevelNormal {
+                        if vc.windowLevel == .normal {
                             top += adjustable.statusBarOffset
                         }
                     } else if let vc = context as? UINavigationController {
@@ -455,7 +455,7 @@ public class AnimatorTopBottom: NSObject, Animator {
             }
             view.layoutMargins = UIEdgeInsets(top: top, left: 0.0, bottom: bottom, right: 0.0)
         }
-        let size = view.systemLayoutSizeFitting(UILayoutFittingCompressedSize)
+        let size = view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
         translationConstraint.constant -= size.height
     }
 
@@ -473,36 +473,36 @@ public class AnimatorTopBottom: NSObject, Animator {
         let animationDistance = translationConstraint.constant + bounceOffset
         let initialSpringVelocity = animationDistance == 0.0 ? 0.0 : min(0.0, closeSpeed / animationDistance)
         UIView.animate(
-                       withDuration: 0.4,
-                       delay: 0.0,
-                       usingSpringWithDamping: 0.8,
-                       initialSpringVelocity: initialSpringVelocity,
-                       options: [.beginFromCurrentState, .curveLinear, .allowUserInteraction],
-                       animations: {
-            self.translationConstraint.constant = -self.bounceOffset
-            self.view.superview?.layoutIfNeeded()
-        },
-                       completion: { completed in
-            completion(completed)
-        }
+            withDuration: 0.4,
+            delay: 0.0,
+            usingSpringWithDamping: 0.8,
+            initialSpringVelocity: initialSpringVelocity,
+            options: [.beginFromCurrentState, .curveLinear, .allowUserInteraction],
+            animations: {
+                self.translationConstraint.constant = -self.bounceOffset
+                self.view.superview?.layoutIfNeeded()
+            },
+            completion: { completed in
+                completion(completed)
+            }
         )
     }
 
     public func hide(completion: @escaping (_ completed: Bool) -> Void) {
 
         UIView.animate(
-                       withDuration: 0.2,
-                       delay: 0,
-                       options: [.beginFromCurrentState, .curveEaseIn],
-                       animations: {
-            let size = self.view.systemLayoutSizeFitting(UILayoutFittingCompressedSize)
-            self.translationConstraint.constant -= size.height
-            self.view.superview?.layoutIfNeeded()
-        },
-                       completion: { completed in
+            withDuration: 0.2,
+            delay: 0,
+            options: [.beginFromCurrentState, .curveEaseIn],
+            animations: {
+                let size = self.view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+                self.translationConstraint.constant -= size.height
+                self.view.superview?.layoutIfNeeded()
+            },
+            completion: { completed in
 
-            completion(completed)
-        }
+                completion(completed)
+            }
         )
     }
 

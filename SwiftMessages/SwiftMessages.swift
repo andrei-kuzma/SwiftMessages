@@ -60,7 +60,7 @@ open class SwiftMessages: PresenterDelegate {
          increases the top margins of any message view that adopts the `MarginInsetting`
          protocol (as `MessageView` does) to account for the status bar.
         */
-        case window(windowLevel: UIWindowLevel)
+        case window(windowLevel: UIWindow.Level)
 
         /**
          Displays the message view under navigation bars and tab bars if an
@@ -168,7 +168,7 @@ open class SwiftMessages: PresenterDelegate {
          - `interactive`: Specifies whether or not tapping the
          dimmed area dismisses the message view.
          */
-        case blur(style: UIBlurEffectStyle, alpha: CGFloat, interactive: Bool)
+        case blur(style: UIBlurEffect.Style, alpha: CGFloat, interactive: Bool)
 
         public var interactive: Bool {
             switch self {

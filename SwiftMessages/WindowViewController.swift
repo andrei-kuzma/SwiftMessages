@@ -12,14 +12,14 @@ class WindowViewController: UIViewController
 {
     fileprivate var window: UIWindow?
 
-    let windowLevel: UIWindowLevel
+    let windowLevel: UIWindow.Level
     let config: SwiftMessages.Config
     
     override var shouldAutorotate: Bool {
         return config.shouldAutorotate
     }
     
-    init(windowLevel: UIWindowLevel = UIWindowLevelNormal, config: SwiftMessages.Config)
+    init(windowLevel: UIWindow.Level = .normal, config: SwiftMessages.Config)
     {
         self.windowLevel = windowLevel
         self.config = config
